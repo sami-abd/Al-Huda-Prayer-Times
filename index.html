@@ -206,13 +206,94 @@ function updateCountdown() {
     setTimeout(updateCountdown, 1000);
 }
 
+function formatTime12h(dateObj) {
+    let h = dateObj.getHours();
+    let m = dateObj.getMinutes();
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12;
+    if (h === 0) h = 12;
+    const mm = m.toString().padStart(2, "0");
+    return `${h}:${mm} ${ampm}`;
+  }
 
+  function updateMidnight() {
+    const now = new Date();
+    const todayFajrStr = WSalahFajr[cday];
+    const todayMaghribStr = WSalahMaghrib[cday];
+    const tomorrowFajrStr = WSalahFajr[cday + 1];
+    const yesterdayMaghribStr = WSalahMaghrib[cday - 1];
+
+    const todayFajr = parseTimeString(todayFajrStr);
+    const todayMaghrib = parseTimeString(todayMaghribStr);
+    const tomorrowFajr = parseTimeString(tomorrowFajrStr);
+    const yesterdayMaghrib = parseTimeString(yesterdayMaghribStr);
+
+    if (!todayFajr || !todayMaghrib || !tomorrowFajr || !yesterdayMaghrib) return;
+
+    let maghrib = todayMaghrib;
+    let fajr = tomorrowFajr;
+
+    if (now < todayFajr) {
+        maghrib = yesterdayMaghrib;
+        maghrib.setDate(maghrib.getDate() - 1);
+        fajr = todayFajr;
+    } else {
+        fajr.setDate(fajr.getDate() + 1);
+    }
+
+    const diffMs = fajr.getTime() - maghrib.getTime();
+
+    const midMs = maghrib.getTime() + diffMs / 2;
+    const midDate = new Date(midMs);
+    const target = document.getElementById("midnight");
+    if (target) target.innerText = formatTime12h(midDate);
+  }
+
+  function updateLastThird() {
+    const now = new Date();
+    const todayFajrStr = WSalahFajr[cday];
+    const todayMaghribStr = WSalahMaghrib[cday];
+    const tomorrowFajrStr = WSalahFajr[cday + 1];
+    const yesterdayMaghribStr = WSalahMaghrib[cday - 1];
+
+    const todayFajr = parseTimeString(todayFajrStr);
+    const todayMaghrib = parseTimeString(todayMaghribStr);
+    const tomorrowFajr = parseTimeString(tomorrowFajrStr);
+    const yesterdayMaghrib = parseTimeString(yesterdayMaghribStr);
+
+    if (!todayFajr || !todayMaghrib || !tomorrowFajr || !yesterdayMaghrib) return;
+
+    let maghrib = todayMaghrib;
+    let fajr = tomorrowFajr;
+
+    if (now < todayFajr) {
+        maghrib = yesterdayMaghrib;
+        maghrib.setDate(maghrib.getDate() - 1);
+        fajr = todayFajr;
+    } else {
+        fajr.setDate(fajr.getDate() + 1);
+    }
+
+    const diffMs = fajr.getTime() - maghrib.getTime();
+    const lastThirdStartMs = maghrib.getTime() + (diffMs * 2) / 3;
+    const lastThirdStartDate = new Date(lastThirdStartMs);
+
+    const lastThirdTarget = document.getElementById("last-third");
+    if (lastThirdTarget) lastThirdTarget.innerText = formatTime12h(lastThirdStartDate);
+  }
 
 // Initialize the countdown
 updateCountdown();
+// Update extra times after the DOM is ready
+window.addEventListener("load", () => {
+    updateMidnight();
+    updateLastThird();
+    const sunriseEl = document.getElementById("sunrise-time");
+    if (sunriseEl) sunriseEl.innerText = WSalahSunrise[cday];
+});
 
-
-    </script>
+    
+</script>
 </head>
 
 
@@ -278,16 +359,6 @@ updateCountdown();
                 </tr>
 
                 <tr>
-                    <td>Sunrise</td>
-                    <td class="prayer-time">
-                        <script type="text/javascript">document.writeln(WSalahSunrise[cday]);</script>
-                    </td>
-
-                    <td class="iqamah-time">..</td>
-                    <td class="prayer-time">..</td>
-                </tr>
-
-                <tr>
                     <td>Dhuhr</td>
                     <td class="prayer-time">
                         <script type="text/javascript">document.writeln(WSalahZuhr[cday]);</script>
@@ -346,6 +417,31 @@ updateCountdown();
                 </tr>
             </tbody>
         </table>
+
+        <div style="text-align:center; width:100%; margin:6px 0 4px;">
+        <table class="extra-times" style="margin: 0 auto;">
+            <thead>
+                <tr>
+                    <th>Events</th>
+                    <th>Times</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="extra-label">Sunrise</td>
+                    <td class="extra-value"><span id="sunrise-time">--</span></td>
+                </tr>
+                <tr>
+                    <td class="extra-label">Midnight</td>
+                    <td class="extra-value"><span id="midnight">--</span></td>
+                </tr>
+                <tr>
+                    <td class="extra-label">Last Third</td>
+                    <td class="extra-value"><span id="last-third">--</span></td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
 
 		<div class="announcements">
 		  <h2 style="color:#FFBF00; text-align:center;">Friday Prayers Schedule</h2>
