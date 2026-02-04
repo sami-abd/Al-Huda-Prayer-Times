@@ -1,4 +1,4 @@
-# IISC Prayer Times (Local Mirror)
+# IISC Prayer Times
 
 ## Overview
 This is a single-page static site that displays daily Athan and Iqamah times,
