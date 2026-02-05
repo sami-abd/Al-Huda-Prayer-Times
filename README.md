@@ -13,7 +13,7 @@ the corresponding entries into the table.
 
 ## Source and Hosting
 - Original site: [(https://iqamah.ca/)]
-- Current production URL: [https://www.iqamah.xyz/]
+- Current development URL: [https://www.iqamah.xyz/]
 - Hosting platform (production): [Firebase]
 
 ## How It Works (Short Version)
