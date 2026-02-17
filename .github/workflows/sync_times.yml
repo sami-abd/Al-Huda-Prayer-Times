@@ -1,0 +1,44 @@
+﻿name: Sync Times
+
+on:
+  schedule:
+    - cron: "15 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      IISC_TIMES_SOURCE_URL: ${{ vars.IISC_TIMES_SOURCE_URL }}
+      FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Sync times.js
+        run: python scripts/sync_times.py
+      - name: Detect changes
+        id: changes
+        run: |
+          if git status --porcelain | grep -q "times.js"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Commit changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add times.js
+          git commit -m "chore: sync times"
+          git push
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+      - name: Deploy Hosting
+        if: steps.changes.outputs.changed == 'true'
+        run: firebase deploy --only hosting --non-interactive
