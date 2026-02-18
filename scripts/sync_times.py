@@ -1,11 +1,13 @@
-﻿import argparse
-import os
+#!/usr/bin/env python3
+import argparse
+import pathlib
 import re
 import sys
-import urllib.request
-from pathlib import Path
 
-VAR_NAMES = [
+import requests
+
+
+TARGET_VARS = [
     "IqamahFajr",
     "IqamahZuhr",
     "IqamahAsr",
@@ -20,38 +22,56 @@ VAR_NAMES = [
 ]
 
 
-def fetch_html(url: str) -> str:
-    with urllib.request.urlopen(url, timeout=30) as resp:
-        charset = resp.headers.get_content_charset() or "utf-8"
-        return resp.read().decode(charset, errors="replace")
+def extract_var(html: str, name: str) -> str:
+    pattern = re.compile(
+        rf"^[ \t]*var[ \t]+{re.escape(name)}[ \t]*=[ \t]*\"([\s\S]*?)\";",
+        re.MULTILINE,
+    )
+    match = pattern.search(html)
+    if not match:
+        raise ValueError(f"Could not find variable '{name}' in source HTML.")
+    return match.group(1)
 
 
-def extract_vars(html: str) -> list[str]:
-    extracted = []
-    for name in VAR_NAMES:
-        pattern = re.compile(rf"var\s+{re.escape(name)}\s*=\s*\".*?\";", re.S)
-        match = pattern.search(html)
-        if not match:
-            raise ValueError(f"Missing variable: {name}")
-        line = re.sub(r"\s+", " ", match.group(0)).strip()
-        extracted.append(line)
-    return extracted
+def replace_var(content: str, name: str, value: str) -> str:
+    pattern = re.compile(
+        rf"(^[ \t]*var[ \t]+{re.escape(name)}[ \t]*=[ \t]*\")[\s\S]*?(\";)",
+        re.MULTILINE,
+    )
+    replaced, count = pattern.subn(rf"\g<1>{value}\2", content, count=1)
+    if count != 1:
+        raise ValueError(f"Could not replace variable '{name}' in target file.")
+    return replaced
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync prayer times into times.js")
-    parser.add_argument("--source", help="Source URL for the original HTML")
-    parser.add_argument("--out", default="times.js", help="Output JS file path")
+    parser = argparse.ArgumentParser(description="Sync prayer-time variables from source site.")
+    parser.add_argument("--source", default="https://iqamah.ca/", help="Source URL")
+    parser.add_argument("--target", default="index.html", help="Target local HTML file")
     args = parser.parse_args()
 
-    source = args.source or os.environ.get("IISC_TIMES_SOURCE_URL") or "https://iqamah.ca/"
+    target_path = pathlib.Path(args.target)
+    if not target_path.exists():
+        print(f"Target file not found: {target_path}", file=sys.stderr)
+        return 2
 
-    html = fetch_html(source)
-    lines = extract_vars(html)
+    response = requests.get(args.source, timeout=30)
+    response.raise_for_status()
+    source_html = response.text
 
-    out_path = Path(args.out)
-    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Wrote {out_path}")
+    extracted = {name: extract_var(source_html, name) for name in TARGET_VARS}
+
+    original = target_path.read_text(encoding="utf-8")
+    updated = original
+    for name, value in extracted.items():
+        updated = replace_var(updated, name, value)
+
+    if updated == original:
+        print("No changes detected.")
+        return 0
+
+    target_path.write_text(updated, encoding="utf-8")
+    print("Updated variables:", ", ".join(TARGET_VARS))
     return 0
 
 

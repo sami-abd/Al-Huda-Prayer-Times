@@ -1,44 +1,55 @@
-﻿name: Sync Times
+name: Sync Times From iqamah.ca
 
 on:
   schedule:
-    - cron: "15 6 * * *"
+    - cron: "0 * * * *"
   workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to sync and push to"
+        required: false
+        default: "development"
 
 permissions:
   contents: write
 
 jobs:
-  sync:
+  sync-times:
     runs-on: ubuntu-latest
-    env:
-      IISC_TIMES_SOURCE_URL: ${{ vars.IISC_TIMES_SOURCE_URL }}
-      FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref_name }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Sync times.js
-        run: python scripts/sync_times.py
-      - name: Detect changes
-        id: changes
+
+      - name: Install Dependencies
+        run: pip install requests
+
+      - name: Sync Time Variables
+        run: python scripts/sync_times.py --source https://iqamah.ca/ --target index.html
+
+      - name: Check For Changes
+        id: diff
         run: |
-          if git status --porcelain | grep -q "times.js"; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+          if git diff --quiet -- index.html; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Commit changes
-        if: steps.changes.outputs.changed == 'true'
+
+      - name: Commit Changes
+        if: steps.diff.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add times.js
-          git commit -m "chore: sync times"
-          git push
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-      - name: Deploy Hosting
-        if: steps.changes.outputs.changed == 'true'
-        run: firebase deploy --only hosting --non-interactive
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "chore(times): sync prayer time variables from iqamah.ca"
+
+      - name: Push Changes
+        if: steps.diff.outputs.changed == 'true'
+        run: git push origin HEAD:${{ github.event.inputs.branch || github.ref_name }}
