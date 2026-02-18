@@ -28,3 +28,18 @@ the corresponding entries into the table.
 - `index.html`: Main page and all JavaScript data/logic.
 - `iqamah.css`: Styling for the page layout and typography.
 
+## GitHub Actions Email Alerts
+When a sync commit updates prayer times and deploys successfully, an email alert is sent.
+
+Configure these GitHub repository secrets:
+- `FIREBASE_TOKEN`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `ALERT_EMAIL_FROM`
+- `ALERT_EMAIL_TO`
+
+For multiple recipients, set `ALERT_EMAIL_TO` as a comma-separated list:
+- `owner@example.com,second@example.com`
+
