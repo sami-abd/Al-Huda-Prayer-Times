@@ -8,7 +8,7 @@ on:
       branch:
         description: "Branch to sync and push to"
         required: false
-        default: "development"
+        default: "production"
 
 permissions:
   contents: write
