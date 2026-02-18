@@ -1,0 +1,55 @@
+name: Sync Times From iqamah.ca
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to sync and push to"
+        required: false
+        default: "development"
+
+permissions:
+  contents: write
+
+jobs:
+  sync-times:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref_name }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: pip install requests
+
+      - name: Sync Time Variables
+        run: python scripts/sync_times.py --source https://iqamah.ca/ --target index.html
+
+      - name: Check For Changes
+        id: diff
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit Changes
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "chore(times): sync prayer time variables from iqamah.ca"
+
+      - name: Push Changes
+        if: steps.diff.outputs.changed == 'true'
+        run: git push origin HEAD:${{ github.event.inputs.branch || github.ref_name }}
