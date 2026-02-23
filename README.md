@@ -1,4 +1,4 @@
-# IISC Prayer Times
+# Al-Huda Prayer Times
 
 ## Overview
 This is a single-page static site that displays daily Athan and Iqamah times,
@@ -7,12 +7,12 @@ from arrays in `index.html`, selects the current day of the year, and renders
 the corresponding entries into the table.
 
 ## Author and Ownership
-- Author: [Afzal]
-- Maintined by: [Afzal and Sami]
-- Organization: [Islamic Information Society of Calgary]
+- Author: [Sami]
+- Maintined by: [Sami]
+- Organization: [Al-Huda Musallah]
 
 ## Source and Hosting
-- Original site: [(https://iqamah.ca/)]
+- Original site (IISC): [(https://iqamah.ca/)]
 - Current production URL: [https://www.iqamah.xyz/]
 - Hosting platform (production): [Firebase]
 
