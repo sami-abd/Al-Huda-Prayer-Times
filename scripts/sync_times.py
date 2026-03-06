@@ -22,6 +22,33 @@ TARGET_VARS = [
 ]
 
 
+def extract_maghrib_static_cells(html: str) -> tuple[str, str]:
+    row_pattern = re.compile(r"<tr>\s*<td>\s*Maghrib\s*</td>[\s\S]*?</tr>", re.IGNORECASE)
+    row_match = row_pattern.search(html)
+    if not row_match:
+        raise ValueError("Could not find Maghrib row in source HTML.")
+
+    row_html = row_match.group(0)
+
+    iqamah_match = re.search(
+        r'<td\s+class="iqamah-time">\s*([^<]+?)\s*</td>',
+        row_html,
+        re.IGNORECASE,
+    )
+    if not iqamah_match:
+        raise ValueError("Could not find Maghrib Iqamah static cell in source HTML.")
+
+    next_match = re.search(
+        r'<td\s+class="prayer-time">\s*<span[^>]*>\s*([^<]+?)\s*</span>\s*</td>',
+        row_html,
+        re.IGNORECASE,
+    )
+
+    iqamah_text = iqamah_match.group(1).strip()
+    next_text = next_match.group(1).strip() if next_match else iqamah_text
+    return iqamah_text, next_text
+
+
 def extract_var(html: str, name: str) -> str:
     pattern = re.compile(
         rf"^[ \t]*var[ \t]+{re.escape(name)}[ \t]*=[ \t]*\"([\s\S]*?)\";",
@@ -44,6 +71,37 @@ def replace_var(content: str, name: str, value: str) -> str:
     return replaced
 
 
+def replace_maghrib_static_cells(content: str, iqamah_text: str, next_text: str) -> str:
+    row_pattern = re.compile(r"<tr>\s*<td>\s*Maghrib\s*</td>[\s\S]*?</tr>", re.IGNORECASE)
+    row_match = row_pattern.search(content)
+    if not row_match:
+        raise ValueError("Could not find Maghrib row in target file.")
+
+    row_html = row_match.group(0)
+
+    row_updated, iq_count = re.subn(
+        r'(<td\s+class="iqamah-time">\s*)([^<]+?)(\s*</td>)',
+        lambda m: f"{m.group(1)}{iqamah_text}{m.group(3)}",
+        row_html,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    if iq_count != 1:
+        raise ValueError("Could not replace Maghrib Iqamah static cell in target file.")
+
+    row_updated, next_count = re.subn(
+        r'(<td\s+class="iqamah-time">\s*[^<]+?\s*</td>\s*<td\s+class="prayer-time">\s*<span[^>]*>\s*)([^<]+?)(\s*</span>\s*</td>)',
+        lambda m: f"{m.group(1)}{next_text}{m.group(3)}",
+        row_updated,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    if next_count != 1:
+        raise ValueError("Could not replace Maghrib Next Sunday static cell in target file.")
+
+    return content[: row_match.start()] + row_updated + content[row_match.end() :]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Sync prayer-time variables from source site.")
     parser.add_argument("--source", default="https://iqamah.ca/", help="Source URL")
@@ -60,11 +118,13 @@ def main() -> int:
     source_html = response.text
 
     extracted = {name: extract_var(source_html, name) for name in TARGET_VARS}
+    maghrib_iqamah_text, maghrib_next_text = extract_maghrib_static_cells(source_html)
 
     original = target_path.read_text(encoding="utf-8")
     updated = original
     for name, value in extracted.items():
         updated = replace_var(updated, name, value)
+    updated = replace_maghrib_static_cells(updated, maghrib_iqamah_text, maghrib_next_text)
 
     if updated == original:
         print("No changes detected.")
@@ -72,6 +132,7 @@ def main() -> int:
 
     target_path.write_text(updated, encoding="utf-8")
     print("Updated variables:", ", ".join(TARGET_VARS))
+    print("Updated Maghrib static cells:", maghrib_iqamah_text, "|", maghrib_next_text)
     return 0
 
 
