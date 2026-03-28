@@ -3,6 +3,8 @@ import argparse
 import pathlib
 import re
 import sys
+import time
+from urllib.parse import urlparse
 
 import requests
 
@@ -20,6 +22,66 @@ TARGET_VARS = [
     "SalahMaghrib",
     "SalahIsha",
 ]
+
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+}
+
+
+def build_source_candidates(source_url: str) -> list[str]:
+    candidates = [source_url]
+
+    parsed = urlparse(source_url)
+    if parsed.netloc == "iqamah.ca":
+        candidates.append(source_url.replace("://iqamah.ca", "://www.iqamah.ca", 1))
+    elif parsed.netloc == "www.iqamah.ca":
+        candidates.append(source_url.replace("://www.iqamah.ca", "://iqamah.ca", 1))
+
+    # Last-resort proxy mirror for sites that block non-browser/CI requests.
+    # This can return plain text but still includes the JS variable lines.
+    candidates.append(f"https://r.jina.ai/http://{parsed.netloc}{parsed.path or '/'}")
+
+    # Deduplicate while preserving order.
+    seen = set()
+    unique_candidates = []
+    for url in candidates:
+        if url not in seen:
+            seen.add(url)
+            unique_candidates.append(url)
+    return unique_candidates
+
+
+def fetch_source_html(source_url: str) -> str:
+    session = requests.Session()
+    session.headers.update(DEFAULT_HEADERS)
+
+    last_error = None
+    candidates = build_source_candidates(source_url)
+    attempts_per_candidate = 2
+
+    for candidate in candidates:
+        for attempt in range(1, attempts_per_candidate + 1):
+            try:
+                response = session.get(candidate, timeout=30)
+                if response.status_code == 200:
+                    return response.text
+                last_error = RuntimeError(f"{candidate} returned HTTP {response.status_code}")
+            except requests.RequestException as exc:
+                last_error = exc
+            time.sleep(1.0)
+
+    raise RuntimeError(
+        "Failed to fetch source HTML from all candidates. "
+        f"Last error: {last_error}"
+    )
 
 
 def extract_maghrib_static_cells(html: str) -> tuple[str, str]:
@@ -113,9 +175,7 @@ def main() -> int:
         print(f"Target file not found: {target_path}", file=sys.stderr)
         return 2
 
-    response = requests.get(args.source, timeout=30)
-    response.raise_for_status()
-    source_html = response.text
+    source_html = fetch_source_html(args.source)
 
     extracted = {name: extract_var(source_html, name) for name in TARGET_VARS}
     maghrib_iqamah_text, maghrib_next_text = extract_maghrib_static_cells(source_html)
