@@ -48,6 +48,24 @@
 
 			cday = date365 + currentDay;
 
+            // Auto-enable TV mode in kiosk / fullscreen-like windows (no URL param needed)
+            function isFullscreenLikeWindow() {
+                var hRatio = window.innerHeight / window.screen.availHeight;
+                var wRatio = window.innerWidth / window.screen.availWidth;
+                return hRatio > 0.93 && wRatio > 0.93;
+            }
+
+            function applyDisplayMode() {
+                if (!document.body) return;
+                var shouldUseTvMode = !!document.fullscreenElement || isFullscreenLikeWindow();
+                document.body.classList.toggle("tv-mode", shouldUseTvMode);
+            }
+
+            window.addEventListener("DOMContentLoaded", applyDisplayMode);
+            window.addEventListener("load", applyDisplayMode);
+            window.addEventListener("resize", applyDisplayMode);
+            document.addEventListener("fullscreenchange", applyDisplayMode);
+
 // Prayer time data (inlined)
 
 var IqamahFajr = "00, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:15 AM, 7:15 AM, 7:15 AM, 7:15 AM, 7:15 AM, 7:15 AM, 7:15 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, Dawn+20 min, 6:20 AM, 6:20 AM, 6:20 AM, 6:20 AM, 6:20 AM, 6:20 AM, 6:20 AM, 6:10 AM, 6:10 AM, 6:10 AM, 6:10 AM, 6:10 AM, 6:10 AM, 6:10 AM, 5:50 AM, 5:50 AM, 5:50 AM, 5:50 AM, 5:50 AM, 5:50 AM, 5:50 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:00 AM, 5:00 AM, 5:00 AM, 5:00 AM, 5:00 AM, 5:00 AM, 5:00 AM, 4:50 AM, 4:50 AM, 4:50 AM, 4:50 AM, 4:50 AM, 4:50 AM, 4:50 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:30 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:40 AM, 4:50 AM, 4:50 AM, 4:50 AM, 4:50 AM, 4:50 AM, 4:50 AM, 4:50 AM, 5:00 AM, 5:00 AM, 5:00 AM, 5:00 AM, 5:00 AM, 5:00 AM, 5:00 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:10 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:20 AM, 5:30 AM, 5:30 AM, 5:30 AM, 5:30 AM, 5:30 AM, 5:30 AM, 5:30 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:40 AM, 5:50 AM, 5:50 AM, 5:50 AM, 5:50 AM, 5:50 AM, 5:50 AM, 5:50 AM, 6:00 AM, 6:00 AM, 6:00 AM, 6:00 AM, 6:00 AM, 6:00 AM, 6:00 AM, 6:10 AM, 6:10 AM, 6:10 AM, 6:10 AM, 6:10 AM, 6:10 AM, 6:10 AM, 6:20 AM, 6:20 AM, 6:20 AM, 6:20 AM, 6:20 AM, 6:20 AM, 6:20 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:30 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:40 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 6:50 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:00 AM, 7:05 AM, 7:05 AM, 7:05 AM, 7:05 AM, 7:05 AM, 7:05 AM, 7:05 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:10 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM, 7:20 AM";
