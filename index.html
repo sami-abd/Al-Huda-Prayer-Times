@@ -49,15 +49,30 @@
 			cday = date365 + currentDay;
 
             // Auto-enable TV mode in kiosk / fullscreen-like windows (no URL param needed)
+            function hasFullscreenElement() {
+                return !!(
+                    document.fullscreenElement ||
+                    document.webkitFullscreenElement ||
+                    document.mozFullScreenElement ||
+                    document.msFullscreenElement ||
+                    document.webkitIsFullScreen ||
+                    document.mozFullScreen
+                );
+            }
+
             function isFullscreenLikeWindow() {
-                // Firefox F11/kiosk can report slightly different metrics than true Fullscreen API.
+                // True fullscreen API (including vendor-prefixed browsers)
+                if (hasFullscreenElement()) return true;
+
+                // Firefox F11/kiosk usually sets this.
+                if (window.fullScreen === true) return true;
+
+                // Conservative fallback for kiosk windows.
                 var screenH = window.screen.height || window.screen.availHeight || 1;
                 var screenW = window.screen.width || window.screen.availWidth || 1;
-
-                var byInner = (window.innerHeight / screenH) > 0.86 && (window.innerWidth / screenW) > 0.86;
-                var byOuter = (window.outerHeight / screenH) > 0.90 && (window.outerWidth / screenW) > 0.90;
-
-                return byInner || byOuter;
+                var hRatio = window.innerHeight / screenH;
+                var wRatio = window.innerWidth / screenW;
+                return hRatio > 0.98 && wRatio > 0.98;
             }
 
             function applyDisplayMode() {
@@ -70,6 +85,9 @@
             window.addEventListener("load", applyDisplayMode);
             window.addEventListener("resize", applyDisplayMode);
             document.addEventListener("fullscreenchange", applyDisplayMode);
+            document.addEventListener("webkitfullscreenchange", applyDisplayMode);
+            document.addEventListener("mozfullscreenchange", applyDisplayMode);
+            document.addEventListener("MSFullscreenChange", applyDisplayMode);
 
 // Prayer time data (inlined)
 
