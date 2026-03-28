@@ -50,9 +50,14 @@
 
             // Auto-enable TV mode in kiosk / fullscreen-like windows (no URL param needed)
             function isFullscreenLikeWindow() {
-                var hRatio = window.innerHeight / window.screen.availHeight;
-                var wRatio = window.innerWidth / window.screen.availWidth;
-                return hRatio > 0.93 && wRatio > 0.93;
+                // Firefox F11/kiosk can report slightly different metrics than true Fullscreen API.
+                var screenH = window.screen.height || window.screen.availHeight || 1;
+                var screenW = window.screen.width || window.screen.availWidth || 1;
+
+                var byInner = (window.innerHeight / screenH) > 0.86 && (window.innerWidth / screenW) > 0.86;
+                var byOuter = (window.outerHeight / screenH) > 0.90 && (window.outerWidth / screenW) > 0.90;
+
+                return byInner || byOuter;
             }
 
             function applyDisplayMode() {
