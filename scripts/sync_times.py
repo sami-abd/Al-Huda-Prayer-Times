@@ -122,6 +122,13 @@ def extract_var(html: str, name: str) -> str:
     return match.group(1)
 
 
+def try_extract_var(html: str, name: str) -> str | None:
+    try:
+        return extract_var(html, name)
+    except ValueError:
+        return None
+
+
 def replace_var(content: str, name: str, value: str) -> str:
     pattern = re.compile(
         rf"(^[ \t]*var[ \t]+{re.escape(name)}[ \t]*=[ \t]*\")[\s\S]*?(\";)",
@@ -177,22 +184,49 @@ def main() -> int:
 
     source_html = fetch_source_html(args.source)
 
-    extracted = {name: extract_var(source_html, name) for name in TARGET_VARS}
-    maghrib_iqamah_text, maghrib_next_text = extract_maghrib_static_cells(source_html)
+    extracted: dict[str, str] = {}
+    missing_vars: list[str] = []
+    for name in TARGET_VARS:
+        value = try_extract_var(source_html, name)
+        if value is None:
+            missing_vars.append(name)
+        else:
+            extracted[name] = value
+
+    maghrib_iqamah_text = None
+    maghrib_next_text = None
+    try:
+        maghrib_iqamah_text, maghrib_next_text = extract_maghrib_static_cells(source_html)
+    except ValueError:
+        pass
 
     original = target_path.read_text(encoding="utf-8")
     updated = original
     for name, value in extracted.items():
         updated = replace_var(updated, name, value)
-    updated = replace_maghrib_static_cells(updated, maghrib_iqamah_text, maghrib_next_text)
+    if maghrib_iqamah_text and maghrib_next_text:
+        updated = replace_maghrib_static_cells(updated, maghrib_iqamah_text, maghrib_next_text)
+
+    if not extracted and not (maghrib_iqamah_text and maghrib_next_text):
+        print("Warning: No variables or Maghrib static cells found in source HTML.")
+        print("Skipping sync without failing so current deployed site remains stable.")
+        return 0
+
+    if missing_vars:
+        print(
+            "Warning: Missing source variables (kept existing local values):",
+            ", ".join(missing_vars),
+        )
 
     if updated == original:
         print("No changes detected.")
         return 0
 
     target_path.write_text(updated, encoding="utf-8")
-    print("Updated variables:", ", ".join(TARGET_VARS))
-    print("Updated Maghrib static cells:", maghrib_iqamah_text, "|", maghrib_next_text)
+    if extracted:
+        print("Updated variables:", ", ".join(sorted(extracted.keys())))
+    if maghrib_iqamah_text and maghrib_next_text:
+        print("Updated Maghrib static cells:", maghrib_iqamah_text, "|", maghrib_next_text)
     return 0
 
 
