@@ -60,6 +60,14 @@
                 );
             }
 
+            function isMobileLikeDevice() {
+                var ua = navigator.userAgent || "";
+                var screenH = window.screen.height || window.screen.availHeight || 1;
+                var screenW = window.screen.width || window.screen.availWidth || 1;
+                var smallestSide = Math.min(screenH, screenW);
+                return /Android|iPhone|iPad|iPod|Mobile|CriOS|FxiOS/i.test(ua) && smallestSide < 900;
+            }
+
             function isFullscreenLikeWindow() {
                 // True fullscreen API (including vendor-prefixed browsers)
                 if (hasFullscreenElement()) return true;
@@ -67,27 +75,53 @@
                 // Firefox F11/kiosk usually sets this.
                 if (window.fullScreen === true) return true;
 
-                // Conservative fallback for kiosk windows.
-                var screenH = window.screen.height || window.screen.availHeight || 1;
-                var screenW = window.screen.width || window.screen.availWidth || 1;
+                var screenH = window.screen.availHeight || window.screen.height || 1;
+                var screenW = window.screen.availWidth || window.screen.width || 1;
+                if (isMobileLikeDevice()) return false;
+
                 var hRatio = window.innerHeight / screenH;
                 var wRatio = window.innerWidth / screenW;
-                return hRatio > 0.98 && wRatio > 0.98;
+                var outerH = window.outerHeight || 0;
+                var outerW = window.outerWidth || 0;
+                var chromeHeight = Math.max(0, outerH - window.innerHeight);
+                var chromeWidth = Math.max(0, outerW - window.innerWidth);
+                var innerNearScreen =
+                    Math.abs(screenH - window.innerHeight) <= 180 &&
+                    Math.abs(screenW - window.innerWidth) <= 180;
+                var outerNearScreen =
+                    outerH > 0 &&
+                    outerW > 0 &&
+                    Math.abs(screenH - outerH) <= 140 &&
+                    Math.abs(screenW - outerW) <= 140;
+                var nearFullscreenByRatio = hRatio > 0.88 && wRatio > 0.9;
+                var nearFullscreenByPixels =
+                    Math.abs(screenH - window.innerHeight) < 120 &&
+                    Math.abs(screenW - window.innerWidth) < 80;
+                var nearFullscreenByWindowFrame =
+                    outerH > 0 &&
+                    outerW > 0 &&
+                    Math.abs(screenH - outerH) < 120 &&
+                    Math.abs(screenW - outerW) < 80 &&
+                    chromeHeight < 140 &&
+                    chromeWidth < 40;
+                return innerNearScreen || outerNearScreen || nearFullscreenByRatio || nearFullscreenByPixels || nearFullscreenByWindowFrame;
             }
 
             function applyDisplayMode() {
                 if (!document.body) return;
-                var shouldUseTvMode = !!document.fullscreenElement || isFullscreenLikeWindow();
+                var shouldUseTvMode = !isMobileLikeDevice() && isFullscreenLikeWindow();
                 document.body.classList.toggle("tv-mode", shouldUseTvMode);
             }
 
             window.addEventListener("DOMContentLoaded", applyDisplayMode);
             window.addEventListener("load", applyDisplayMode);
             window.addEventListener("resize", applyDisplayMode);
+            window.addEventListener("orientationchange", applyDisplayMode);
             document.addEventListener("fullscreenchange", applyDisplayMode);
             document.addEventListener("webkitfullscreenchange", applyDisplayMode);
             document.addEventListener("mozfullscreenchange", applyDisplayMode);
             document.addEventListener("MSFullscreenChange", applyDisplayMode);
+            setInterval(applyDisplayMode, 400);
 
 // Prayer time data (inlined)
 
@@ -397,10 +431,10 @@ window.addEventListener("load", () => {
         <table class="prayer-table">
             <thead>
                 <tr>
-                    <th>Prayer</th>
-                    <th>Athan</th>
-                    <th>Iqamah</th>
-                    <th>Next Sunday</th>
+                    <th><span class="label-full">Prayer</span><span class="label-short">Prayer</span></th>
+                    <th><span class="label-full">Athan</span><span class="label-short">Athan</span></th>
+                    <th><span class="label-full">Iqamah</span><span class="label-short">Iqamah</span></th>
+                    <th><span class="label-full">Next Sunday</span><span class="label-short">Next Sun</span></th>
                 </tr>
             </thead>
 
@@ -540,6 +574,7 @@ window.addEventListener("load", () => {
 					showTime();
 					// Footer website link text
 					const container = document.createElement('div');
+					container.className = 'site-link';
 					container.style.textAlign = 'center';
 					container.style.width = '100%';
 					container.style.marginTop = '10px';
