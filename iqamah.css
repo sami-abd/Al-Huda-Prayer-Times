@@ -281,86 +281,98 @@ body {
 body.tv-mode {
     padding: 0;
     min-height: 100vh;
+    overflow: hidden;
 }
 
 body.tv-mode .container {
     width: 100vw;
     max-width: 100vw;
-    min-height: calc(100vh - 24px);
+    min-height: auto;
     border-radius: 0;
-    padding: 0.85vh 0.9vw;
+    padding: 0.45vh 0.55vw;
 }
 
 body.tv-mode .header {
-    margin-bottom: 0.8vh;
+    margin-bottom: 0.35vh;
 }
 
 body.tv-mode .header h1 {
-    font-size: clamp(42px, 4.8vh, 76px);
+    font-size: clamp(28px, 3.3vh, 52px);
 }
 
 body.tv-mode .prayer-table {
-    margin-bottom: 1vh;
+    margin-bottom: 0.45vh;
 }
 
 body.tv-mode .prayer-table th,
 body.tv-mode .prayer-table td {
-    padding: clamp(12px, 1.15vh, 24px);
+    padding: clamp(6px, 0.62vh, 12px) clamp(8px, 0.65vw, 14px);
 }
 
 body.tv-mode .prayer-table th {
-    font-size: clamp(22px, 2vh, 32px);
+    font-size: clamp(18px, 1.55vh, 26px);
 }
 
 body.tv-mode .prayer-table tbody td:first-child,
 body.tv-mode .prayer-time,
 body.tv-mode .iqamah-time {
-    font-size: clamp(34px, 3.6vh, 62px);
+    font-size: clamp(24px, 2.7vh, 40px);
 }
 
 body.tv-mode .info-grid {
-    gap: 0.9vw;
-    margin-bottom: 0.9vh;
+    gap: 0.45vw;
+    margin-bottom: 0.45vh;
 }
 
 body.tv-mode .extra-card,
 body.tv-mode .announcements {
-    padding: 1.1vh 1.2vw;
+    padding: 0.55vh 0.75vw;
+}
+
+body.tv-mode .extra-times th,
+body.tv-mode .extra-times td {
+    padding: 0.32vh 0.55vw;
 }
 
 body.tv-mode .extra-times th {
-    font-size: clamp(17px, 1.35vh, 22px);
+    font-size: clamp(14px, 1vh, 18px);
 }
 
 body.tv-mode .extra-label,
 body.tv-mode .extra-value {
-    font-size: clamp(22px, 2vh, 30px);
+    font-size: clamp(16px, 1.42vh, 22px);
 }
 
 body.tv-mode .announcements h2 {
-    font-size: clamp(30px, 2.7vh, 42px);
+    margin-bottom: 0.25vh;
+    font-size: clamp(20px, 1.75vh, 28px);
 }
 
 body.tv-mode .announcements p {
-    font-size: clamp(22px, 1.95vh, 30px);
+    font-size: clamp(16px, 1.35vh, 22px);
+    line-height: 1.15;
 }
 
 body.tv-mode .clock-display {
-    margin-top: auto;
+    margin-top: 0;
+    padding: 0.35vh 0.6vw 0.25vh;
 }
 
 body.tv-mode #left-column-text {
-    font-size: clamp(21px, 1.9vh, 28px) !important;
+    font-size: clamp(14px, 1.15vh, 18px) !important;
 }
 
 body.tv-mode .clock {
-    font-size: clamp(52px, 5.4vh, 88px);
+    min-width: 0;
+    padding: 0.25vh 0.75vw;
+    font-size: clamp(34px, 3.55vh, 54px);
 }
 
 body.tv-mode #resizableText {
-    font-size: clamp(20px, 1.78vh, 28px) !important;
+    font-size: clamp(14px, 1.18vh, 18px) !important;
 }
 
 body.tv-mode .footer-text {
-    font-size: clamp(10px, 0.9vh, 14px);
+    font-size: clamp(8px, 0.72vh, 11px);
+    padding: 0.15vh 0.5vw 0.2vh;
 }
