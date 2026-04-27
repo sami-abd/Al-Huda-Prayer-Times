@@ -1,330 +1,348 @@
-/* Ensure the html and body cover the full height of the viewport */
-html {
-    height: 100%;
+html,
+body {
+    min-height: 100%;
     margin: 0;
     padding: 0;
 }
 
-        /* Updated CSS variables and styling */
-        :root {
-            --primary-color: #163962;
-            /* Deep blue */
-            --secondary-color: #CBDCF7;
-            /* Lighter blue */
-            --accent-color: #fbc02d;
-            /* Accent yellow */
-            --text-color: #ffffff;
-            --dark-bg: #ffffff;
-            /* Dark background */
-        }
+:root {
+    --night: #071018;
+    --slate: #101c2c;
+    --steel: #1a3048;
+    --sand: #d9c9a3;
+    --sand-soft: #efe4c9;
+    --cream: #f7f1e3;
+    --ink: #09111a;
+    --text: #f5f3ee;
+    --muted: #c3bcae;
+    --line: rgba(239, 228, 201, 0.15);
+    --shadow: 0 22px 54px rgba(2, 7, 12, 0.38);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background:
+        radial-gradient(circle at top center, rgba(217, 201, 163, 0.08), transparent 24%),
+        linear-gradient(180deg, #091119 0%, #122132 55%, #17324d 100%);
+    color: var(--text);
+    font-family: "Montserrat", sans-serif;
+    padding: 12px;
+}
+
+.container {
+    width: min(1760px, 100%);
+    margin: 0 auto;
+    padding: 14px;
+    background: linear-gradient(180deg, rgba(9, 16, 24, 0.88), rgba(12, 23, 35, 0.92));
+    border: 1px solid rgba(239, 228, 201, 0.08);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+}
+
+.header {
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: clamp(1.9rem, 4vw, 4rem);
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--sand-soft);
+}
+
+.prayer-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+    margin-bottom: 18px;
+}
+
+.prayer-table th,
+.prayer-table td {
+    padding: clamp(18px, 2vw, 28px);
+    text-align: center;
+    font-weight: 700;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.prayer-table th:last-child,
+.prayer-table td:last-child {
+    border-right: 0;
+}
+
+.prayer-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.prayer-table th {
+    background: linear-gradient(180deg, rgba(217, 201, 163, 0.98), rgba(199, 182, 146, 0.92));
+    color: var(--ink);
+    font-size: clamp(1rem, 1.8vw, 1.95rem);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.prayer-table tbody td:first-child {
+    width: 24%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+    color: var(--sand-soft);
+    font-size: clamp(1.45rem, 2.7vw, 3rem);
+    letter-spacing: 0.03em;
+}
+
+.prayer-time {
+    width: 25%;
+    background: linear-gradient(180deg, #26476a 0%, #1b3551 100%);
+    color: #ffffff;
+    font-size: clamp(1.35rem, 2.65vw, 2.95rem);
+}
+
+.iqamah-time {
+    width: 25%;
+    background: linear-gradient(180deg, rgba(247, 241, 227, 0.98), rgba(227, 217, 193, 0.92));
+    color: var(--ink);
+    font-size: clamp(1.35rem, 2.65vw, 2.95rem);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: minmax(300px, 0.9fr) minmax(420px, 1.3fr);
+    gap: 14px;
+    align-items: stretch;
+    margin-bottom: 14px;
+}
+
+.info-card {
+    border-radius: 22px;
+    border: 1px solid rgba(239, 228, 201, 0.1);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.extra-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 10px;
+}
+
+.extra-times {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.extra-times th,
+.extra-times td {
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(239, 228, 201, 0.08);
+}
+
+.extra-times tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.extra-times th {
+    color: var(--sand);
+    font-size: clamp(0.95rem, 1.15vw, 1.25rem);
+    text-align: left;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.extra-label {
+    color: var(--muted);
+    font-size: clamp(1rem, 1.35vw, 1.4rem);
+    font-weight: 600;
+}
+
+.extra-value {
+    color: var(--text);
+    font-size: clamp(1rem, 1.4vw, 1.5rem);
+    font-weight: 700;
+}
+
+.announcements {
+    padding: 18px 24px;
+    text-align: left;
+}
+
+.announcements h2 {
+    margin-bottom: 12px;
+    color: var(--accent-color, #ffc247) !important;
+    font-size: clamp(1.25rem, 1.85vw, 2.15rem);
+    font-weight: 800;
+    letter-spacing: 0.03em;
+}
+
+.announcements p {
+    color: #f1efe8;
+    font-size: clamp(1rem, 1.5vw, 1.8rem);
+    line-height: 1.35;
+}
+
+.clock-display {
+    padding: 14px 18px 10px;
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(8, 14, 20, 0.95), rgba(6, 12, 18, 0.98));
+    border: 1px solid rgba(239, 228, 201, 0.08);
+}
+
+#left-column-text {
+    color: #ffc247 !important;
+    font-weight: 800 !important;
+}
+
+#MyClockDisplay {
+    font-weight: 800;
+    letter-spacing: 0.06em;
+}
+
+.clock {
+    display: inline-block;
+    min-width: 220px;
+    padding: 8px 18px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(239, 228, 201, 0.08);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+    font-size: clamp(2rem, 4vw, 4rem);
+}
+
+#resizableText {
+    color: rgba(247, 241, 227, 0.88) !important;
+}
+
+#resizableText a {
+    color: var(--sand) !important;
+}
+
+.footer-text {
+    color: rgba(247, 241, 227, 0.42);
+    font-size: 0.62rem;
+    padding: 8px 8px 0;
+}
+
+@media screen and (max-width: 1080px) {
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .announcements {
+        text-align: center;
+    }
+}
+
+@media screen and (max-width: 860px) {
+    body {
+        padding: 4px;
+    }
+
+    .container {
+        padding: 8px;
+        border-radius: 18px;
+    }
+
+    .prayer-table th,
+    .prayer-table td {
+        padding: 12px 8px;
+    }
+
+    .prayer-table th {
+        font-size: 0.95rem;
+    }
+
+    .prayer-table tbody td:first-child,
+    .prayer-time,
+    .iqamah-time {
+        font-size: 1.1rem;
+    }
+
+    .clock {
+        min-width: 0;
+        font-size: 1.7rem;
+    }
+}
 
-
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-	body {
-	    /* Changed the dark/light direction */
-	    background: linear-gradient(1deg, var(--primary-color), var(--dark-bg)) no-repeat fixed;
-	    background-size: cover;
-	    color: var(--text-color);
-	    font-family: 'Montserrat', sans-serif;
-	    padding: 1px;
-	    min-height: 100vh; /* Ensures the background covers the full mobile screen */
-	    margin: 0;
-	}
-
-
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            /* Added a semi-transparent background with padding and rounded corners */
-            background: rgba(0, 0, 0, 0.6);
-            padding: 0px;
-            border-radius: 5px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.9);
-         
-        }
-
-
-        .header {
-            text-align: center;
-            margin-bottom: 3px;
-	    margin-top: 5px;
-        }
-
-
-
-        .header h1 {
-            font-size: clamp(10px, 4vw, 32px);
-            margin-bottom: 3px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-        }
-
-
-
-        .prayer-table {
-            width: 99%;
-			align-content: center;
-            border-collapse: collapse;
-            margin-bottom: 3px;
-			margin-top: 1px;
-			margin-left: 0.5%;
-			margin-right: 0.5%;
-        }
-
-
-
-        .prayer-table th,
-        .prayer-table td {
-            padding: clamp(8px, 2vw, 20px);
-            text-align: center;
-			font-weight: bold;
-            font-size: clamp(18px, 2.5vw, 30px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-
-
-        .prayer-table th {
-            background: var(--secondary-color);
-            color: #000;
-            font-weight: bold;
-            border-radius: 4px;
-        }
-
-
-
-        /* Alternate row shading and hover effect */
-
-        .prayer-table tbody tr:nth-child(even) {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-
-        .prayer-table tbody tr:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transition: background 0.3s ease;
-	        width: 25%;
-        }
-
-
-
-        .prayer-time {
-            background-color: var(--primary-color);
-            border-radius: 4px;
-	        width: 25%;
-        }
-
-        .iqamah-time {
-            background-color: var(--secondary-color);
-            color: #000;
-            border-radius: 4px;
-			border-color: #163962;
-	        width: 25%;
-        }
-
-
-        .announcements {
-			position: relative;
-            background: var(--accent-color);
-			background: var(--primary-color);
-            padding: 2px;
-            margin-bottom: 5px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-			margin-left: 0.5%;
-			margin-right: 0.5%;
-        }
-
-
-
-        .announcements h2 {
-			position: relative;
-			text-align: center;
-            font-size: clamp(12px, 1vw, 14px);
-            margin-bottom: 5px;
-            color: #ffffff;
-        }
-
-
-
-        .announcements p {
-            font-size: clamp(12px, .05vw, 14px);
-            line-height: 1.1;
-            color: #ffffff;
-        }
-
-
-        .clock-display {
-            text-align: center;
-            font-size: clamp(20px, 1vw, 30px);
-            margin-top: 0px;
-	    position: relative;
-            padding: 0px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-
-        }
-
-
-        #MyClockDisplay {
-            font-weight: bold;
-            letter-spacing: 2px;
-            text-align: center;
-        }
-
-	   .clock {
-		  font-size: 2.8rem;
-		  padding: 2px;
-		  border-radius: 10px;
-		  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-		  margin-bottom: 0px;
-		}
-
-		.footer-text {
-		  font-size: .5em;
-		  color: #000000;
-		  padding: 2px 2px;
-
-		}
-
-
-        /* TV Display Optimizations */
-
-        @media screen and (min-width: 1080px) {
-            .container {
-                max-width: 99%;
-            }
-
-            .prayer-table th,
-            .prayer-table td {
-                padding: 7px;
-                font-size: 36px;
-            }
-
-
-            .announcements {
-
-                padding: 4px;
-				text-align: center;
-
-            }
-
-
-            .announcements h2 {
-                font-size: 28px;
-            }
-
-
-            .announcements p {
-                font-size: 24px;
-            }
-
-        }
-
-
-        /* Mobile Optimizations */
-
-	 /* Mobile Optimizations */
-		@media screen and (max-width: 768px) {
-
-		  .prayer-table th,
-		  .prayer-table td {
-			padding: 8px;
-			font-size: 14px;
-		  }
-
-		  .announcements {
-			padding: 15px;
-		  }
-
-		  .announcements h2 {
-			font-size: 14px;
-		  }
-
-		  .announcements p {
-			font-size: 12px;
-		  }
-
-		  .clock {
-			font-size: 1.8rem;
-		  }
-
-		  .header h1 {
-			font-size: clamp(12px, 2.9vw, 24px);
-		  }
-		}
-
-/* TV mode (auto-enabled for kiosk/fullscreen-like window size) */
 body.tv-mode {
     padding: 0;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
 }
 
 body.tv-mode .container {
-    max-width: 100vw;
     width: 100vw;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    margin: 0;
+    max-width: 100vw;
+    min-height: calc(100vh - 24px);
     border-radius: 0;
-    padding: 0.4vh 0.4vw;
+    padding: 0.85vh 0.9vw;
 }
 
 body.tv-mode .header {
-    margin-top: 0;
-    margin-bottom: 0.4vh;
+    margin-bottom: 0.8vh;
 }
 
 body.tv-mode .header h1 {
-    font-size: clamp(28px, 4vh, 58px);
+    font-size: clamp(42px, 4.8vh, 76px);
 }
 
 body.tv-mode .prayer-table {
-    width: 99.5%;
-    margin: 0 auto 0.6vh;
+    margin-bottom: 1vh;
 }
 
 body.tv-mode .prayer-table th,
 body.tv-mode .prayer-table td {
-    font-size: clamp(30px, 4.2vh, 70px);
-    padding: clamp(8px, 1.15vh, 20px);
+    padding: clamp(12px, 1.15vh, 24px);
 }
 
-body.tv-mode .extra-times .extra-label,
-body.tv-mode .extra-times .extra-value {
-    font-size: clamp(22px, 2.2vh, 34px);
+body.tv-mode .prayer-table th {
+    font-size: clamp(22px, 2vh, 32px);
 }
 
-body.tv-mode .extra-times th,
-body.tv-mode .extra-times td {
-    font-size: clamp(24px, 2.4vh, 40px);
-    padding: clamp(4px, 0.6vh, 10px) clamp(10px, 1vw, 16px);
-    line-height: 1.2;
+body.tv-mode .prayer-table tbody td:first-child,
+body.tv-mode .prayer-time,
+body.tv-mode .iqamah-time {
+    font-size: clamp(34px, 3.6vh, 62px);
 }
 
+body.tv-mode .info-grid {
+    gap: 0.9vw;
+    margin-bottom: 0.9vh;
+}
+
+body.tv-mode .extra-card,
 body.tv-mode .announcements {
-    margin-bottom: 0.6vh;
+    padding: 1.1vh 1.2vw;
+}
+
+body.tv-mode .extra-times th {
+    font-size: clamp(17px, 1.35vh, 22px);
+}
+
+body.tv-mode .extra-label,
+body.tv-mode .extra-value {
+    font-size: clamp(22px, 2vh, 30px);
 }
 
 body.tv-mode .announcements h2 {
-    font-size: clamp(28px, 3.2vh, 48px);
+    font-size: clamp(30px, 2.7vh, 42px);
 }
 
 body.tv-mode .announcements p {
-    font-size: clamp(20px, 2.4vh, 34px);
-    line-height: 1.2;
+    font-size: clamp(22px, 1.95vh, 30px);
 }
 
 body.tv-mode .clock-display {
@@ -332,20 +350,17 @@ body.tv-mode .clock-display {
 }
 
 body.tv-mode #left-column-text {
-    font-size: clamp(22px, 2.2vh, 34px) !important;
+    font-size: clamp(21px, 1.9vh, 28px) !important;
 }
 
 body.tv-mode .clock {
-    font-size: clamp(48px, 6vh, 96px);
+    font-size: clamp(52px, 5.4vh, 88px);
 }
 
 body.tv-mode #resizableText {
-    font-size: clamp(22px, 2.3vh, 34px) !important;
+    font-size: clamp(20px, 1.78vh, 28px) !important;
 }
 
 body.tv-mode .footer-text {
-    font-size: clamp(10px, 1.1vh, 16px);
-    padding: 0 0.6vw 0.4vh;
+    font-size: clamp(10px, 0.9vh, 14px);
 }
-
-
