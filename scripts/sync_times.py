@@ -14,7 +14,6 @@ TARGET_VARS = [
     "IqamahZuhr",
     "IqamahAsr",
     "IqamahMaghrib",
-    "IqamahIsha",
     "SalahFajr",
     "SalahSunrise",
     "SalahZuhr",
