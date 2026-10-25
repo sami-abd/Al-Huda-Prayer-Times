@@ -2,7 +2,8 @@ name: Sync Times From iqamah.ca
 
 on:
   schedule:
-    - cron: "0 12 * * *"
+    # Avoid the start of the hour, when scheduled jobs are most likely to be dropped.
+    - cron: "17 12 * * *"
   workflow_dispatch:
     inputs:
       branch:
@@ -13,14 +14,21 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sync-times-production
+  cancel-in-progress: false
+
 jobs:
   sync-times:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || 'production' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || github.ref_name }}
+          ref: ${{ env.TARGET_BRANCH }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -52,4 +60,21 @@ jobs:
 
       - name: Push Changes
         if: steps.diff.outputs.changed == 'true'
-        run: git push origin HEAD:${{ github.event.inputs.branch || github.ref_name }}
+        run: git push origin HEAD:${TARGET_BRANCH}
+
+      # GITHUB_TOKEN pushes do not start the separate push-triggered deploy job.
+      - name: Setup Node
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Firebase CLI
+        if: steps.diff.outputs.changed == 'true'
+        run: npm install -g firebase-tools
+
+      - name: Deploy Updated Schedule
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only hosting
