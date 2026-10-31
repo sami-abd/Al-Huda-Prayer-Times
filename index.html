@@ -161,18 +161,37 @@ var SalahIsha    = "00, 7:10 PM, 7:11 PM, 7:12 PM, 7:14 PM, 7:15 PM, 7:16 PM, 7:
             }
         }
 
+        // iqamah.ca changes iqamah times on Sundays, so the last column shows the
+        // coming Sunday (tomorrow on a Saturday, a week ahead on a Sunday) with its date.
+        function nextSundayIndex() {
+            var weekday = new Date().getDay();
+            return cday + (7 - weekday);
+        }
+
+        function labelNextSunday() {
+            var sunday = new Date();
+            sunday.setDate(sunday.getDate() + (7 - sunday.getDay()));
+            var month = sunday.toLocaleDateString("en-US", { month: "short" });
+            var full = document.getElementById("next-sunday-full");
+            var short = document.getElementById("next-sunday-short");
+            if (full) full.innerText = "Sunday, " + month + " " + sunday.getDate();
+            if (short) short.innerText = "Sun " + month + " " + sunday.getDate();
+        }
+
         function populatePrayerTable() {
+            var nextSunday = nextSundayIndex();
+            labelNextSunday();
             setTextById("fajr-athan", WSalahFajr[cday]);
             setTextById("fajr-iqamah", WIqamahFajr[cday]);
-            setTextById("fajr-next", WIqamahFajr[cday + 7]);
+            setTextById("fajr-next", WIqamahFajr[nextSunday]);
 
             setTextById("dhuhr-athan", WSalahZuhr[cday]);
             setTextById("dhuhr-iqamah", WIqamahZuhr[cday]);
-            setTextById("dhuhr-next", WIqamahZuhr[cday + 7]);
+            setTextById("dhuhr-next", WIqamahZuhr[nextSunday]);
 
             setTextById("asr-athan", WSalahAsr[cday]);
             setTextById("asr-iqamah", WIqamahAsr[cday]);
-            setTextById("asr-next", WIqamahAsr[cday + 7]);
+            setTextById("asr-next", WIqamahAsr[nextSunday]);
 
             setTextById("maghrib-athan", WSalahMaghrib[cday]);
 
@@ -434,7 +453,7 @@ window.addEventListener("load", () => {
                     <th><span class="label-full">Prayer</span><span class="label-short">Prayer</span></th>
                     <th><span class="label-full">Athan</span><span class="label-short">Athan</span></th>
                     <th><span class="label-full">Iqamah</span><span class="label-short">Iqamah</span></th>
-                    <th><span class="label-full">Next Sunday</span><span class="label-short">Next Sun</span></th>
+                    <th><span class="label-full" id="next-sunday-full">Next Sunday</span><span class="label-short" id="next-sunday-short">Next Sun</span></th>
                 </tr>
             </thead>
 
