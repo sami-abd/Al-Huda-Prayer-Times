@@ -74,6 +74,7 @@ REQUIRED_DAYS_AFTER = 7
 # Al-Huda's Fajr iqamah: 10 minutes after the athan, never earlier than 7:10 AM.
 # The 7:10 minimum is skipped on days when 7:10 is less than 30 minutes before
 # sunrise (spring and summer); those days use athan + 10.
+# Days at athan + 10 show "+10 min"; days held at 7:10 show "7:10 AM".
 FAJR_IQAMAH_DELAY_MINUTES = 10
 FAJR_IQAMAH_EARLIEST = "7:10 AM"
 FAJR_IQAMAH_SUNRISE_BUFFER_MINUTES = 30
@@ -417,8 +418,9 @@ def fajr_iqamah(athan: str, sunrise: str) -> str | None:
         and earliest <= sunrise_minutes - FAJR_IQAMAH_SUNRISE_BUFFER_MINUTES
     )
     if iqamah < earliest and earliest_fits_before_sunrise:
-        iqamah = earliest
-    return minutes_to_clock(iqamah)
+        return minutes_to_clock(earliest)
+    # Shown the same way as Maghrib and Isha on iqamah.ca.
+    return f"+{FAJR_IQAMAH_DELAY_MINUTES} min"
 
 
 def apply_fajr_iqamah_rule(content: str) -> str:

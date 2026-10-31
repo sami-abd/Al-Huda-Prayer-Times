@@ -32,6 +32,7 @@ the corresponding entries into the table.
 ## Al-Huda Rules Applied by the Sync
 - Fajr iqamah: athan + 10 minutes, never earlier than 7:10 AM. The 7:10 minimum is
   skipped on days when 7:10 is less than 30 minutes before sunrise; those days use athan + 10.
+  Days at athan + 10 show "+10 min"; days held at 7:10 show "7:10 AM".
   The values are set in `scripts/sync_times.py` (`FAJR_IQAMAH_*`), not taken from iqamah.ca.
 - Isha iqamah: shown as "+10 min", set in `index.html`.
 
