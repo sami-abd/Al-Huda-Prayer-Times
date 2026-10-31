@@ -27,6 +27,16 @@ the corresponding entries into the table.
 ## Files
 - `index.html`: Main page and all JavaScript data/logic.
 - `iqamah.css`: Styling for the page layout and typography.
+- `scripts/sync_times.py`: Daily sync of the arrays from iqamah.ca (GitHub Actions, `sync_times.yml`).
+
+## Al-Huda Rules Applied by the Sync
+- Fajr iqamah: athan + 10 minutes, never earlier than 7:10 AM. The 7:10 minimum is
+  skipped on days when 7:10 is less than 30 minutes before sunrise; those days use athan + 10.
+  The values are set in `scripts/sync_times.py` (`FAJR_IQAMAH_*`), not taken from iqamah.ca.
+- Isha iqamah: shown as "+10 min", set in `index.html`.
+
+If iqamah.ca blocks the GitHub runner, the sync reads it through `r.jina.ai`.
+Sync results and errors appear as annotations on each workflow run.
 
 ## GitHub Actions Email Alerts
 When a sync commit updates prayer times and deploys successfully, an email alert is sent.

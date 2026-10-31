@@ -6,12 +6,21 @@ on:
       - production
   workflow_dispatch:
 
+# Shared with the sync workflow so the two never deploy at the same time.
+concurrency:
+  group: production-site
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # Deploy the newest production commit, which may include a sync commit
+      # made after this run was triggered.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: production
 
       - name: Setup Node
         uses: actions/setup-node@v4

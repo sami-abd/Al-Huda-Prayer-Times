@@ -1,19 +1,37 @@
 #!/usr/bin/env python3
+"""Sync prayer times in index.html from iqamah.ca.
+
+iqamah.ca links two schedule scripts from its home page:
+  schedule.js       IQAMAH_SCHEDULE = { "YYYY-MM-DD": { fajr: "...", ... }, ... }
+  salahschedule.js  SALAH_SCHEDULE  = { "YYYY-MM-DD": { fajr: "...", sunrise: "...", ... }, ... }
+Older versions of the site had the arrays inline as `var IqamahFajr = "...";`.
+
+iqamah.ca usually answers GitHub runners with HTTP 403. When that happens the
+files are fetched through the r.jina.ai reader, which is asked for raw HTML or
+plain text so the script tags and schedule objects come through intact.
+
+After syncing, Al-Huda's own Fajr iqamah rule is applied to index.html. The rule
+is applied even when iqamah.ca can't be read; the script then still exits with 1.
+"""
 import argparse
 import calendar
+import html as html_lib
+import os
 import pathlib
 import re
 import sys
 import time
+import traceback
 from datetime import date, timedelta
 from urllib.parse import urljoin, urlparse
 
 import requests
 
 
-# Isha iqamah is intentionally omitted: Al-Huda keeps it hardcoded in index.html.
+# Not synced from iqamah.ca:
+#   IqamahIsha: Al-Huda keeps it hardcoded in index.html.
+#   IqamahFajr: computed from the Fajr athan by apply_fajr_iqamah_rule().
 SCHEDULE_VARIABLES = {
-    "IqamahFajr": ("iqamah", "fajr"),
     "IqamahZuhr": ("iqamah", "zuhr"),
     "IqamahAsr": ("iqamah", "asr"),
     "IqamahMaghrib": ("iqamah", "maghrib"),
@@ -25,11 +43,48 @@ SCHEDULE_VARIABLES = {
     "SalahIsha": ("salah", "isha"),
 }
 
-DEFAULT_HEADERS = {
+SCHEDULE_FILES = {
+    "iqamah": ("schedule.js", "IQAMAH_SCHEDULE"),
+    "salah": ("salahschedule.js", "SALAH_SCHEDULE"),
+}
+
+# Other spellings the source could use for the same field.
+FIELD_ALIASES = {
+    "fajr": "fajr",
+    "fajar": "fajr",
+    "sunrise": "sunrise",
+    "shuruq": "sunrise",
+    "shurooq": "sunrise",
+    "zuhr": "zuhr",
+    "dhuhr": "zuhr",
+    "duhr": "zuhr",
+    "zuhur": "zuhr",
+    "asr": "asr",
+    "maghrib": "maghrib",
+    "magrib": "maghrib",
+    "isha": "isha",
+    "ishaa": "isha",
+}
+
+# The page reads yesterday through today + 7 ("Next Sunday"), so those days
+# must come from the source. Other missing days keep the value already in index.html.
+REQUIRED_DAYS_BEFORE = 1
+REQUIRED_DAYS_AFTER = 7
+
+# Al-Huda's Fajr iqamah: 10 minutes after the athan, never earlier than 7:10 AM.
+# The 7:10 minimum is skipped on days when 7:10 is less than 30 minutes before
+# sunrise (spring and summer); those days use athan + 10.
+FAJR_IQAMAH_DELAY_MINUTES = 10
+FAJR_IQAMAH_EARLIEST = "7:10 AM"
+FAJR_IQAMAH_SUNRISE_BUFFER_MINUTES = 30
+
+READER_PREFIX = "https://r.jina.ai/"
+
+BROWSER_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
+        "Chrome/130.0.0.0 Safari/537.36"
     ),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
@@ -37,102 +92,241 @@ DEFAULT_HEADERS = {
     "Pragma": "no-cache",
 }
 
-
-def build_source_candidates(source_url: str) -> list[str]:
-    candidates = [source_url]
-    parsed = urlparse(source_url)
-
-    if parsed.netloc == "iqamah.ca":
-        candidates.append(source_url.replace("://iqamah.ca", "://www.iqamah.ca", 1))
-    elif parsed.netloc == "www.iqamah.ca":
-        candidates.append(source_url.replace("://www.iqamah.ca", "://iqamah.ca", 1))
-
-    # This mirror remains useful if Cloudflare blocks the GitHub runner.
-    candidates.append(f"https://r.jina.ai/http://{parsed.netloc}{parsed.path or '/'}")
-    return list(dict.fromkeys(candidates))
+CHALLENGE_MARKERS = (
+    "just a moment...",
+    "cf-chl",
+    "challenge-platform",
+    "attention required! | cloudflare",
+)
 
 
-def fetch_url(url: str, candidates: list[str] | None = None) -> tuple[str, str]:
+class SyncError(RuntimeError):
+    pass
+
+
+def annotate(level: str, message: str, title: str = "") -> None:
+    """Print a GitHub Actions annotation. These show up on the run page and in the API."""
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    data = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    properties = ""
+    if title:
+        escaped_title = title.replace("%", "%25").replace(":", "%3A").replace(",", "%2C")
+        properties = f" title={escaped_title}"
+    print(f"::{level}{properties}::{data}", flush=True)
+
+
+# ---------------------------------------------------------------- fetching
+
+
+def fetch_candidates(url: str, reader_format: str) -> list[tuple[str, dict[str, str], str]]:
+    parsed = urlparse(url)
+    host = parsed.netloc
+    other_host = host[4:] if host.startswith("www.") else f"www.{host}"
+    return [
+        (url, {}, "direct"),
+        (url.replace(f"://{host}", f"://{other_host}", 1), {}, "direct"),
+        (
+            READER_PREFIX + url,
+            {"X-Return-Format": reader_format, "X-No-Cache": "true"},
+            "r.jina.ai",
+        ),
+    ]
+
+
+def is_challenge_page(text: str) -> bool:
+    head = text[:5000].lower()
+    return any(marker in head for marker in CHALLENGE_MARKERS)
+
+
+def fetch(url: str, reader_format: str, is_usable, attempts_log: list[str]) -> tuple[str, str, str]:
+    """Return (text, fetched_url, route) for the first candidate that gives usable content."""
     session = requests.Session()
-    session.headers.update(DEFAULT_HEADERS)
-    last_error: Exception | None = None
+    attempts: list[str] = []
 
-    for candidate in candidates or [url]:
-        for _ in range(2):
+    for candidate, extra_headers, route in fetch_candidates(url, reader_format):
+        headers = {**BROWSER_HEADERS, **extra_headers}
+        for attempt in range(2):
             try:
-                response = session.get(candidate, timeout=30)
-                if response.status_code == 200:
-                    return response.text, candidate
-                last_error = RuntimeError(f"{candidate} returned HTTP {response.status_code}")
+                response = session.get(candidate, headers=headers, timeout=45)
             except requests.RequestException as exc:
-                last_error = exc
-            time.sleep(1)
+                result = type(exc).__name__
+                retry = True
+            else:
+                text = response.text
+                if response.status_code != 200:
+                    result = f"HTTP {response.status_code}"
+                    retry = response.status_code == 429 or response.status_code >= 500
+                elif is_challenge_page(text):
+                    result = "Cloudflare challenge page"
+                    retry = False
+                elif not is_usable(text):
+                    result = f"HTTP 200, but the expected content is missing ({len(text)} chars)"
+                    retry = False
+                else:
+                    attempts.append(f"{candidate}: OK")
+                    attempts_log.extend(attempts)
+                    return text, candidate, route
+            attempts.append(f"{candidate}: {result}")
+            if not retry or attempt == 1:
+                break
+            time.sleep(3)
 
-    raise RuntimeError(f"Failed to fetch {url}. Last error: {last_error}")
+    attempts_log.extend(attempts)
+    raise SyncError(f"Could not fetch {url}. Tried: " + "; ".join(attempts))
 
 
-def find_script_url(html: str, page_url: str, filename: str) -> str:
+# ---------------------------------------------------------------- parsing
+
+
+def find_script_url(html: str, page_url: str, filename: str) -> str | None:
+    """Find a <script src> whose file name is exactly `filename`.
+
+    Matching the whole file name keeps "schedule.js" from matching "salahschedule.js".
+    """
+    for match in re.finditer(r'<script\b[^>]*?\bsrc\s*=\s*["\']([^"\']+)["\']', html, re.IGNORECASE):
+        src = html_lib.unescape(match.group(1).strip())
+        name = urlparse(src).path.rsplit("/", 1)[-1]
+        if name.lower() == filename.lower():
+            return urljoin(page_url, src)
+    return None
+
+
+def has_linked_schedules(html: str) -> bool:
+    return all(
+        find_script_url(html, "https://example.invalid/", filename)
+        for filename, _ in SCHEDULE_FILES.values()
+    )
+
+
+def has_inline_variables(html: str) -> bool:
+    return all(
+        re.search(rf'^[ \t]*var[ \t]+{name}[ \t]*=[ \t]*"', html, re.MULTILINE)
+        for name in SCHEDULE_VARIABLES
+    )
+
+
+def extract_object_literal(javascript: str, object_name: str) -> str:
+    """Return the text between the braces of `const NAME = { ... }`."""
     match = re.search(
-        rf'<script\b[^>]*\bsrc=["\']([^"\']*{re.escape(filename)}[^"\']*)["\']',
-        html,
-        re.IGNORECASE,
+        rf"(?:\b(?:const|let|var)\s+|\bwindow\.){re.escape(object_name)}\s*=\s*\{{",
+        javascript,
     )
     if not match:
-        raise ValueError(f"Could not find {filename} in source HTML.")
-    return urljoin(page_url, match.group(1))
+        raise SyncError(f"Could not find {object_name} in the linked schedule file.")
+
+    start = match.end() - 1
+    depth = 0
+    quote = None
+    index = start
+    length = len(javascript)
+    while index < length:
+        char = javascript[index]
+        if quote:
+            if char == "\\":
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+        elif javascript.startswith("//", index):
+            newline = javascript.find("\n", index)
+            index = length if newline == -1 else newline
+            continue
+        elif javascript.startswith("/*", index):
+            end = javascript.find("*/", index + 2)
+            index = length if end == -1 else end + 2
+            continue
+        elif char in "\"'`":
+            quote = char
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return javascript[start + 1 : index]
+        index += 1
+
+    raise SyncError(f"{object_name} is not closed in the linked schedule file.")
+
+
+ROW_PATTERN = re.compile(r"""["']?(\d{4}-\d{2}-\d{2})["']?\s*:\s*\{([^{}]*)\}""")
+FIELD_PATTERN = re.compile(r"""["']?([A-Za-z_]\w*)["']?\s*:\s*(["'`])(.*?)\2""", re.DOTALL)
 
 
 def extract_date_schedule(javascript: str, object_name: str) -> dict[str, dict[str, str]]:
-    object_match = re.search(
-        rf"\b(?:const|let|var)\s+{re.escape(object_name)}\s*=\s*\{{([\s\S]*?)\n\}};",
-        javascript,
-    )
-    if not object_match:
-        raise ValueError(f"Could not find {object_name} in linked schedule file.")
-
+    body = extract_object_literal(javascript, object_name)
     rows: dict[str, dict[str, str]] = {}
-    for row in re.finditer(
-        r'"(\d{4}-\d{2}-\d{2})"\s*:\s*\{([^}]+)\}',
-        object_match.group(1),
-    ):
-        values = dict(re.findall(r'(\w+)\s*:\s*"([^"]*)"', row.group(2)))
+    for row in ROW_PATTERN.finditer(body):
+        values: dict[str, str] = {}
+        for field in FIELD_PATTERN.finditer(row.group(2)):
+            key = FIELD_ALIASES.get(field.group(1).lower())
+            if key:
+                values[key] = field.group(3).strip()
         rows[row.group(1)] = values
 
     if not rows:
-        raise ValueError(f"{object_name} did not contain any dated rows.")
+        raise SyncError(f"{object_name} did not contain any dated rows.")
     return rows
 
 
-def build_year_array(schedule: dict[str, dict[str, str]], prayer: str, year: int) -> str:
-    # Include seven January entries so cday + 7 works at the end of December.
-    final_index = (366 if calendar.isleap(year) else 365) + 7
-    values = ["00"]
+def read_array(content: str, name: str) -> list[str] | None:
+    match = re.search(
+        rf'^[ \t]*var[ \t]+{re.escape(name)}[ \t]*=[ \t]*"([\s\S]*?)";',
+        content,
+        re.MULTILINE,
+    )
+    return [part.strip() for part in match.group(1).split(",")] if match else None
+
+
+def read_existing_arrays(content: str) -> dict[str, list[str]]:
+    return {name: read_array(content, name) or [] for name in SCHEDULE_VARIABLES}
+
+
+def year_days(year: int) -> list[date]:
+    """Jan 1 of `year` through Jan 7 of the next year, so cday + 7 works in late December."""
+    count = (366 if calendar.isleap(year) else 365) + 7
     start = date(year, 1, 1)
+    return [start + timedelta(days=offset) for offset in range(count)]
 
-    for offset in range(final_index):
-        iso_date = (start + timedelta(days=offset)).isoformat()
-        value = schedule.get(iso_date, {}).get(prayer, "").strip()
+
+def build_year_array(
+    schedule: dict[str, dict[str, str]],
+    prayer: str,
+    days: list[date],
+    existing: list[str],
+    required: set[date],
+    label: str,
+) -> tuple[str, list[date]]:
+    values = ["00"]
+    kept: list[date] = []
+    for index, day in enumerate(days, start=1):
+        value = schedule.get(day.isoformat(), {}).get(prayer, "").strip()
         if not value:
-            raise ValueError(f"Missing {prayer} value for {iso_date} in source schedule.")
+            if day in required:
+                raise SyncError(f"iqamah.ca has no {label} time for {day.isoformat()}.")
+            if index < len(existing) and existing[index]:
+                value = existing[index]
+                kept.append(day)
+            else:
+                raise SyncError(
+                    f"No {label} time for {day.isoformat()} in iqamah.ca or in index.html."
+                )
         values.append(value)
+    return ", ".join(values), kept
 
-    return ", ".join(values)
 
-
-def extract_linked_variables(html: str, page_url: str, year: int) -> dict[str, str]:
-    iqamah_url = find_script_url(html, page_url, "schedule.js")
-    salah_url = find_script_url(html, page_url, "salahschedule.js")
-    iqamah_js, _ = fetch_url(iqamah_url, build_source_candidates(iqamah_url))
-    salah_js, _ = fetch_url(salah_url, build_source_candidates(salah_url))
-
-    schedules = {
-        "iqamah": extract_date_schedule(iqamah_js, "IQAMAH_SCHEDULE"),
-        "salah": extract_date_schedule(salah_js, "SALAH_SCHEDULE"),
-    }
-    return {
-        variable: build_year_array(schedules[schedule_name], prayer, year)
-        for variable, (schedule_name, prayer) in SCHEDULE_VARIABLES.items()
-    }
+def describe_days(days: list[date]) -> str:
+    if not days:
+        return ""
+    ranges = []
+    start = previous = days[0]
+    for day in days[1:]:
+        if day - previous != timedelta(days=1):
+            ranges.append((start, previous))
+            start = day
+        previous = day
+    ranges.append((start, previous))
+    return ", ".join(a.isoformat() if a == b else f"{a.isoformat()} to {b.isoformat()}" for a, b in ranges)
 
 
 def extract_inline_variables(html: str) -> dict[str, str]:
@@ -144,9 +338,12 @@ def extract_inline_variables(html: str) -> dict[str, str]:
             re.MULTILINE,
         )
         if not match:
-            raise ValueError(f"Could not find legacy variable '{name}' in source HTML.")
+            raise SyncError(f"Could not find legacy variable '{name}' in the iqamah.ca page.")
         extracted[name] = match.group(1)
     return extracted
+
+
+# ---------------------------------------------------------------- writing
 
 
 def replace_var(content: str, name: str, value: str) -> str:
@@ -154,9 +351,9 @@ def replace_var(content: str, name: str, value: str) -> str:
         rf'(^[ \t]*var[ \t]+{re.escape(name)}[ \t]*=[ \t]*")[\s\S]*?(";)',
         re.MULTILINE,
     )
-    replaced, count = pattern.subn(rf"\g<1>{value}\2", content, count=1)
+    replaced, count = pattern.subn(lambda match: f"{match.group(1)}{value}{match.group(2)}", content, count=1)
     if count != 1:
-        raise ValueError(f"Could not replace variable '{name}' in target file.")
+        raise SyncError(f"Could not replace variable '{name}' in the target file.")
     return replaced
 
 
@@ -170,7 +367,7 @@ def replace_maghrib_static_cells(content: str, iqamah_text: str, next_text: str)
     row_pattern = re.compile(r"<tr>\s*<td>\s*Maghrib\s*</td>[\s\S]*?</tr>", re.IGNORECASE)
     row_match = row_pattern.search(content)
     if not row_match:
-        raise ValueError("Could not find Maghrib row in target file.")
+        raise SyncError("Could not find the Maghrib row in the target file.")
 
     row_html = row_match.group(0)
     row_updated, iq_count = re.subn(
@@ -188,8 +385,156 @@ def replace_maghrib_static_cells(content: str, iqamah_text: str, next_text: str)
         flags=re.IGNORECASE,
     )
     if iq_count != 1 or next_count != 1:
-        raise ValueError("Could not replace Maghrib static cells in target file.")
+        raise SyncError("Could not replace the Maghrib static cells in the target file.")
     return content[: row_match.start()] + row_updated + content[row_match.end() :]
+
+
+# ---------------------------------------------------------------- Fajr iqamah
+
+
+def clock_to_minutes(value: str) -> int | None:
+    match = re.fullmatch(r"\s*(\d{1,2}):(\d{2})\s*(AM|PM)\s*", value or "", re.IGNORECASE)
+    if not match:
+        return None
+    hours = int(match.group(1)) % 12 + (12 if match.group(3).upper() == "PM" else 0)
+    return hours * 60 + int(match.group(2))
+
+
+def minutes_to_clock(total: int) -> str:
+    hours, minutes = divmod(total % (24 * 60), 60)
+    return f"{hours % 12 or 12}:{minutes:02d} {'AM' if hours < 12 else 'PM'}"
+
+
+def fajr_iqamah(athan: str, sunrise: str) -> str | None:
+    athan_minutes = clock_to_minutes(athan)
+    if athan_minutes is None:
+        return None
+    iqamah = athan_minutes + FAJR_IQAMAH_DELAY_MINUTES
+    earliest = clock_to_minutes(FAJR_IQAMAH_EARLIEST)
+    sunrise_minutes = clock_to_minutes(sunrise)
+    earliest_fits_before_sunrise = (
+        sunrise_minutes is not None
+        and earliest <= sunrise_minutes - FAJR_IQAMAH_SUNRISE_BUFFER_MINUTES
+    )
+    if iqamah < earliest and earliest_fits_before_sunrise:
+        iqamah = earliest
+    return minutes_to_clock(iqamah)
+
+
+def apply_fajr_iqamah_rule(content: str) -> str:
+    athans = read_array(content, "SalahFajr")
+    sunrises = read_array(content, "SalahSunrise")
+    current = read_array(content, "IqamahFajr")
+    if athans is None or sunrises is None or current is None:
+        raise SyncError("Could not find SalahFajr, SalahSunrise or IqamahFajr in the target file.")
+
+    values = ["00"]
+    for index in range(1, len(athans)):
+        sunrise = sunrises[index] if index < len(sunrises) else ""
+        computed = fajr_iqamah(athans[index], sunrise)
+        if computed is None:  # Unreadable athan: keep what was there.
+            computed = current[index] if index < len(current) else ""
+        values.append(computed)
+    return replace_var(content, "IqamahFajr", ", ".join(values))
+
+
+# ---------------------------------------------------------------- main
+
+
+def sync_from_iqamah_ca(source: str, content: str, sync_date: date) -> tuple[str, str]:
+    """Return index.html content updated from iqamah.ca, and a note on where it came from."""
+    attempts: list[str] = []
+    notes: list[str] = []
+
+    page_html = None
+    page_url = source
+    try:
+        page_html, fetched_url, route = fetch(
+            source,
+            "html",
+            lambda text: has_linked_schedules(text) or has_inline_variables(text),
+            attempts,
+        )
+        if route == "direct":
+            page_url = fetched_url
+        notes.append(f"page via {route}")
+    except SyncError as exc:
+        # The script files can still be tried at their usual address next to the page.
+        notes.append("page unavailable, used default schedule file URLs")
+        annotate("warning", str(exc), "iqamah.ca page not readable")
+
+    try:
+        if page_html and not has_linked_schedules(page_html) and has_inline_variables(page_html):
+            extracted = extract_inline_variables(page_html)
+            source_format = "legacy inline variables"
+            kept_days: list[date] = []
+        else:
+            days = year_days(sync_date.year)
+            required = {
+                day
+                for day in days
+                if sync_date - timedelta(days=REQUIRED_DAYS_BEFORE)
+                <= day
+                <= sync_date + timedelta(days=REQUIRED_DAYS_AFTER)
+            }
+            schedules = {}
+            for schedule_name, (filename, object_name) in SCHEDULE_FILES.items():
+                script_url = (page_html and find_script_url(page_html, page_url, filename)) or urljoin(
+                    source, filename
+                )
+                javascript, _, route = fetch(
+                    script_url,
+                    "text",
+                    lambda text, name=object_name: re.search(rf"\b{name}\s*=\s*\{{", text) is not None,
+                    attempts,
+                )
+                schedules[schedule_name] = extract_date_schedule(javascript, object_name)
+                notes.append(f"{filename} via {route}")
+
+            existing = read_existing_arrays(content)
+            extracted = {}
+            kept_by_day: set[date] = set()
+            for variable, (schedule_name, prayer) in SCHEDULE_VARIABLES.items():
+                extracted[variable], kept = build_year_array(
+                    schedules[schedule_name],
+                    prayer,
+                    days,
+                    existing[variable],
+                    required,
+                    f"{schedule_name} {prayer}",
+                )
+                kept_by_day.update(kept)
+            kept_days = sorted(kept_by_day)
+            source_format = "linked date schedules"
+    finally:
+        print("Fetch attempts:")
+        for line in attempts:
+            print(f"  {line}")
+
+    updated = content
+    for name, value in extracted.items():
+        updated = replace_var(updated, name, value)
+
+    maghrib_values = [part.strip() for part in extracted["IqamahMaghrib"].split(",")]
+    day_index = sync_date.timetuple().tm_yday
+    updated = replace_maghrib_static_cells(
+        updated,
+        maghrib_display_text(maghrib_values[day_index]),
+        maghrib_display_text(maghrib_values[day_index + 7]),
+    )
+
+    source_note = f"{source_format} for {sync_date.year} ({', '.join(notes)})"
+    print(f"Read iqamah.ca as {source_note}.")
+
+    if kept_days:
+        message = (
+            f"iqamah.ca has no times for {len(kept_days)} day(s) of {sync_date.year}; "
+            f"kept the values already in index.html for: {describe_days(kept_days)}"
+        )
+        print(message)
+        annotate("warning", message, "Some days not in iqamah.ca")
+
+    return updated, source_note
 
 
 def main() -> int:
@@ -205,42 +550,38 @@ def main() -> int:
         print(f"Target file not found: {target_path}", file=sys.stderr)
         return 2
 
-    source_html, fetched_url = fetch_url(
-        args.source,
-        candidates=build_source_candidates(args.source),
-    )
-
-    if re.search(r"(?:schedule|salahschedule)\.js", source_html, re.IGNORECASE):
-        # A proxy copy of the HTML still contains source-relative script URLs.
-        page_url = args.source if "r.jina.ai" in fetched_url else fetched_url
-        extracted = extract_linked_variables(source_html, page_url, sync_date.year)
-        source_format = "linked date schedules"
-    else:
-        extracted = extract_inline_variables(source_html)
-        source_format = "legacy inline variables"
-
     original = target_path.read_text(encoding="utf-8")
-    updated = original
-    for name, value in extracted.items():
-        updated = replace_var(updated, name, value)
+    content = original
+    sync_failed = False
+    source_note = ""
+    try:
+        content, source_note = sync_from_iqamah_ca(args.source, content, sync_date)
+    except SyncError as exc:
+        sync_failed = True
+        print(f"Sync from iqamah.ca failed: {exc}", file=sys.stderr)
+        annotate("error", str(exc), "iqamah.ca sync failed")
+    except Exception as exc:  # Unexpected errors still need to show up on the run page.
+        sync_failed = True
+        traceback.print_exc()
+        annotate("error", f"{type(exc).__name__}: {exc}", "iqamah.ca sync crashed")
 
-    maghrib_values = [part.strip() for part in extracted["IqamahMaghrib"].split(",")]
-    day_index = sync_date.timetuple().tm_yday
-    updated = replace_maghrib_static_cells(
-        updated,
-        maghrib_display_text(maghrib_values[day_index]),
-        maghrib_display_text(maghrib_values[day_index + 7]),
-    )
+    # The Fajr rule only needs the athan times, so it runs even if the sync failed.
+    try:
+        content = apply_fajr_iqamah_rule(content)
+    except Exception as exc:
+        traceback.print_exc()
+        annotate("error", f"{type(exc).__name__}: {exc}", "Fajr iqamah rule failed")
+        return 1
 
-    print(f"Fetched {fetched_url} using {source_format} for {sync_date.year}.")
-    print(f"Validated and extracted all {len(extracted)} required variables.")
-    if updated == original:
-        print("No changes detected.")
-        return 0
-
-    target_path.write_text(updated, encoding="utf-8")
-    print("Updated variables:", ", ".join(sorted(extracted)))
-    return 0
+    if content == original:
+        summary = "No changes: index.html is already up to date."
+    else:
+        target_path.write_text(content, encoding="utf-8")
+        summary = "Updated index.html."
+    print(summary)
+    if not sync_failed:
+        annotate("notice", f"{summary} Source: {source_note}.", "iqamah.ca sync")
+    return 1 if sync_failed else 0
 
 
 if __name__ == "__main__":
