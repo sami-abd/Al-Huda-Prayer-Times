@@ -22,7 +22,7 @@ import re
 import sys
 import time
 import traceback
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -78,6 +78,10 @@ REQUIRED_DAYS_AFTER = 7
 FAJR_IQAMAH_DELAY_MINUTES = 10
 FAJR_IQAMAH_EARLIEST = "7:10 AM"
 FAJR_IQAMAH_SUNRISE_BUFFER_MINUTES = 30
+
+# Alberta Time is UTC-6 all year from November 1, 2026. GitHub runners use UTC,
+# so "today" is taken in Alberta Time to match the date the site shows.
+ALBERTA_TIME = timezone(timedelta(hours=-6), "Alberta Time")
 
 READER_PREFIX = "https://r.jina.ai/"
 
@@ -546,7 +550,7 @@ def main() -> int:
     parser.add_argument("--date", help="Date to sync for, in YYYY-MM-DD format")
     args = parser.parse_args()
 
-    sync_date = date.fromisoformat(args.date) if args.date else date.today()
+    sync_date = date.fromisoformat(args.date) if args.date else datetime.now(ALBERTA_TIME).date()
     target_path = pathlib.Path(args.target)
     if not target_path.exists():
         print(f"Target file not found: {target_path}", file=sys.stderr)
